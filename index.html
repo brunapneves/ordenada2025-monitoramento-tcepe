@@ -101,9 +101,10 @@
 // =====================================================================
 // CONFIGURAÇÃO — altere apenas estas duas linhas
 // =====================================================================
-var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz1ZT4Uf35Me-ke3egUpTzbokyDxjHKvcvITnnUFVTj0yrUyYTijtcaGqlga-BcyNmqjg/exec';
+var APPS_SCRIPT_URL = 'COLE_AQUI_A_URL_DO_APPS_SCRIPT';
 var CLIENT_ID       = '943637051517-bj6voqpq6dq39c8lf7rnis5bv8artfjk.apps.googleusercontent.com';
 var DRIVE_SCOPE     = 'https://www.googleapis.com/auth/drive.file';
+var LOGO_URL        = 'https://drive.google.com/uc?export=view&id=1wVj1Ff7iCpBCyBSVjJ_69SIZGkmWBtlV';
 
 // =====================================================================
 // ESTADO
@@ -297,6 +298,7 @@ function renderMunicipios() {
   }
   return '<div class="container">' +
     '<div class="header-inst">' +
+    '<img src="' + LOGO_URL + '" alt="TCE-PE" style="height:60px;margin-bottom:12px;object-fit:contain">' +
     '<div class="sigla">Tribunal de Contas do Estado de Pernambuco</div>' +
     '<h1>Monitoramento de Determinações</h1>' +
     '<div class="sub">Operação Ordenada — Alimentação Escolar 2025</div></div>' +
@@ -338,12 +340,7 @@ function renderFormulario() {
     groups[groups.length-1].items.push(irregs[i]);
   }
 
-  var pastaHtml = state.linkPasta
-    ? '<div class="info-box" style="border-color:#bfdbfe;background:#eff6ff;margin-bottom:24px">' +
-      '<p style="font-size:13px;color:#1e40af;font-weight:700;margin-bottom:6px">&#128193; Pasta de comprovação desta escola</p>' +
-      '<p style="font-size:13px;color:#1e40af;margin-bottom:10px">Os arquivos anexados neste formulário serão enviados para esta pasta automaticamente.</p>' +
-      '<a href="' + esc(state.linkPasta) + '" target="_blank" style="display:inline-block;background:#1d4ed8;color:#fff;padding:8px 18px;border-radius:6px;font-size:13px;font-weight:700;text-decoration:none">Ver pasta no Google Drive &#8594;</a></div>'
-    : '';
+  var pastaHtml = ''; // pasta oculta do jurisdicionado
 
   var groupsHtml = '';
   for (var g = 0; g < groups.length; g++) {
@@ -363,10 +360,16 @@ function renderFormulario() {
         '<option value="parcial"' + (r.status==='parcial'?' selected':'') + '>Correção em andamento</option>' +
         '<option value="nao_cumprida"' + (r.status==='nao_cumprida'?' selected':'') + '>Ainda não corrigida</option>' +
         '</select></div>' +
-        '<div><label class="form-label">Comprovação (foto / PDF / vídeo)</label>' +
-        '<input type="file" class="form-input" accept="image/*,video/*,.pdf" data-field="arquivo" data-cod="' + esc(ir.cod) + '" style="padding:6px 12px;font-size:12px">' +
-        (r.arquivoNome ? '<div style="font-size:11px;color:#166534;margin-top:3px">&#10003; ' + esc(r.arquivoNome) + '</div>' : '') +
-        '</div>' +
+        (function() {
+          var compLabel = ir.comprovacao === 'pdf'   ? '&#128196; PDF' :
+                          ir.comprovacao === 'video' ? '&#127909; Vídeo' : '&#128247; Foto';
+          var accept    = ir.comprovacao === 'pdf'   ? '.pdf' :
+                          ir.comprovacao === 'video' ? 'video/*' : 'image/*';
+          return '<div><label class="form-label">Comprovação (' + compLabel + ')</label>' +
+            '<input type="file" class="form-input" accept="' + accept + '" data-field="arquivo" data-cod="' + esc(ir.cod) + '" style="padding:6px 12px;font-size:12px">' +
+            (r.arquivoNome ? '<div style="font-size:11px;color:#166534;margin-top:3px">&#10003; ' + esc(r.arquivoNome) + '</div>' : '') +
+            '</div>';
+        })() +
         '<div class="full"><label class="form-label">Justificativa / Observações</label>' +
         '<textarea class="form-textarea" rows="2" data-field="justificativa" data-cod="' + esc(ir.cod) + '">' + esc(r.justificativa||'') + '</textarea></div>' +
         '</div></div>';
@@ -643,7 +646,7 @@ window.onload = function() {
       el('app').innerHTML = '<div class="container"><div class="error-box"><div class="etitle">Erro ao carregar:</div><div class="eitem">' + esc(err.message) + '</div></div></div>';
       return;
     }
-    state.municipios = data.map(function(m) { return { nome: m, count: '...' }; });
+    state.municipios = data.map(function(m) { return { nome: m.nome, count: m.count }; });
     state.tela = 'municipio';
     render();
   });
