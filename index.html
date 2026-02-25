@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TCE-PE · Monitoramento de Determinações</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'DM Sans', sans-serif; background: #f1f5f9; color: #1e293b; min-height: 100vh; }
+    .container { max-width: 780px; margin: 0 auto; padding: 32px 20px; }
+    .header-inst { text-align: center; margin-bottom: 32px; }
+    .header-inst .sigla { font-size: 12px; letter-spacing: 3px; color: #94a3b8; text-transform: uppercase; margin-bottom: 8px; }
+    .header-inst h1 { font-family: 'Playfair Display', Georgia, serif; font-size: 26px; font-weight: 800; color: #0f172a; line-height: 1.2; margin-bottom: 6px; }
+    .header-inst .sub { font-size: 14px; color: #64748b; }
+    .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px 20px; margin-bottom: 8px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: all 0.15s; }
+    .card:hover { border-color: #00416d; box-shadow: 0 2px 8px rgba(0,65,109,0.08); }
+    .card-title { font-size: 14px; font-weight: 700; color: #0f172a; }
+    .badge { background: #00416d; color: #fff; border-radius: 20px; padding: 3px 12px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+    .btn-back { background: none; border: none; color: #00416d; font-size: 13px; cursor: pointer; padding: 0; margin-bottom: 20px; font-weight: 600; font-family: 'DM Sans', sans-serif; }
+    .banner { background: #00416d; border-radius: 10px; padding: 20px 24px; color: #fff; margin-bottom: 24px; }
+    .banner .tag { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; opacity: 0.6; margin-bottom: 4px; }
+    .banner h2 { font-family: 'Playfair Display', Georgia, serif; font-size: 20px; font-weight: 800; margin: 0 0 4px 0; }
+    .banner .info { font-size: 13px; opacity: 0.8; }
+    .banner .stats { display: flex; gap: 16px; margin-top: 14px; flex-wrap: wrap; }
+    .banner .stat { background: rgba(255,255,255,0.15); border-radius: 6px; padding: 6px 14px; font-size: 12px; }
+    .info-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin-bottom: 24px; }
+    .search-input { width: 100%; padding: 12px 16px; font-size: 14px; border: 2px solid #cbd5e1; border-radius: 6px; outline: none; font-family: 'DM Sans', sans-serif; transition: border-color 0.2s; margin-bottom: 16px; }
+    .search-input:focus { border-color: #00416d; }
+    .form-label { display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 4px; }
+    .form-input { width: 100%; padding: 8px 12px; font-size: 13px; border: 1px solid #d1d5db; border-radius: 6px; font-family: 'DM Sans', sans-serif; outline: none; background: #fff; }
+    .form-select { width: 100%; padding: 8px 12px; font-size: 13px; border: 1px solid #d1d5db; border-radius: 6px; font-family: 'DM Sans', sans-serif; outline: none; background: #fff; cursor: pointer; }
+    .form-textarea { width: 100%; padding: 8px 12px; font-size: 13px; border: 1px solid #d1d5db; border-radius: 6px; font-family: 'DM Sans', sans-serif; outline: none; resize: vertical; line-height: 1.4; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .form-grid .full { grid-column: 1 / -1; }
+    .dim-header { padding: 10px 18px; display: flex; align-items: center; gap: 10px; border-radius: 8px 8px 0 0; }
+    .dim-header.infra { background: #00416d; }
+    .dim-header.alim { background: #065f46; }
+    .dim-header span { color: #fff; font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
+    .dim-header .sep { color: rgba(255,255,255,0.5); }
+    .dim-header .sub-name { color: rgba(255,255,255,0.85); font-weight: 600; letter-spacing: 0; text-transform: none; }
+    .irreg-item { border: 1px solid #e2e8f0; padding: 18px 20px; background: #fff; }
+    .irreg-item:first-of-type { border-top: none; }
+    .irreg-item:last-of-type { border-radius: 0 0 8px 8px; }
+    .irreg-texto { font-size: 14px; color: #1e293b; line-height: 1.5; font-weight: 500; }
+    .irreg-criterio { font-size: 11px; color: #94a3b8; margin-top: 4px; }
+    .btn-primary { width: 100%; padding: 14px; font-size: 15px; font-weight: 700; background: #00416d; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-family: 'DM Sans', sans-serif; letter-spacing: 0.5px; transition: background 0.2s; }
+    .btn-primary:hover { background: #003355; }
+    .btn-secondary { padding: 12px 24px; font-size: 14px; font-weight: 600; background: #fff; color: #00416d; border: 2px solid #00416d; border-radius: 8px; cursor: pointer; font-family: 'DM Sans', sans-serif; }
+    .error-box { background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; margin-bottom: 20px; }
+    .error-box .etitle { font-size: 13px; font-weight: 700; color: #dc2626; margin-bottom: 6px; }
+    .error-box .eitem { font-size: 12px; color: #b91c1c; margin-left: 8px; }
+    .recibo { background: #fff; border: 2px solid #00416d; border-radius: 10px; overflow: hidden; }
+    .recibo-header { background: #00416d; padding: 24px 28px; color: #fff; text-align: center; }
+    .recibo-body { padding: 24px 28px; }
+    .recibo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 24px; margin-bottom: 20px; font-size: 13px; }
+    .recibo-grid .full { grid-column: 1 / -1; }
+    .recibo-grid strong { color: #64748b; }
+    .dim-label { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; padding-bottom: 4px; }
+    .dim-label.infra { color: #00416d; border-bottom: 2px solid #00416d; }
+    .dim-label.alim { color: #065f46; border-bottom: 2px solid #065f46; }
+    .recibo-item { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; }
+    .status-badge { flex-shrink: 0; border-radius: 4px; padding: 2px 8px; font-size: 11px; font-weight: 700; min-width: 110px; text-align: center; }
+    .status-cumprida { background: #dcfce7; color: #166534; }
+    .status-parcial { background: #fef9c3; color: #854d0e; }
+    .status-nao_cumprida { background: #fef2f2; color: #991b1b; }
+    .recibo-resumo { margin-top: 20px; padding: 16px; background: #f8fafc; border-radius: 8px; display: flex; justify-content: space-around; text-align: center; }
+    .recibo-resumo .num { font-size: 24px; font-weight: 800; }
+    .recibo-resumo .rlabel { color: #64748b; font-size: 11px; }
+    .recibo-footer { margin-top: 20px; padding-top: 16px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 11px; color: #94a3b8; }
+    .actions { display: flex; gap: 12px; margin-top: 24px; }
+    .actions button { flex: 1; }
+    .loading { text-align: center; padding: 60px 20px; }
+    .spinner { display: inline-block; width: 36px; height: 36px; border: 3px solid #e2e8f0; border-top-color: #00416d; border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text { margin-top: 12px; color: #64748b; font-size: 14px; }
+    .geo-info { font-size: 11px; color: #64748b; margin-top: 4px; padding: 4px 8px; background: #f1f5f9; border-radius: 4px; display: inline-block; }
+    .geo-info.ok { color: #166534; background: #dcfce7; }
+    .geo-info.err { color: #991b1b; background: #fef2f2; }
+    .progress-bar { width: 100%; height: 6px; background: #e2e8f0; border-radius: 3px; margin-top: 12px; overflow: hidden; }
+    .progress-fill { height: 100%; background: #00416d; border-radius: 3px; transition: width 0.3s; }
+    @media (max-width: 600px) {
+      .form-grid { grid-template-columns: 1fr; }
+      .recibo-grid { grid-template-columns: 1fr; }
+      .actions { flex-direction: column; }
+    }
+    @media print {
+      body { background: #fff; }
+      .no-print { display: none !important; }
+      .recibo { border: 1px solid #000; }
+    }
+  </style>
+</head>
+<body>
+<div id="app"></div>
+
+<!-- Google Identity Services -->
+<script src="https://accounts.google.com/gsi/client"></script>
+
+<script>
+// =====================================================================
+// CONFIGURAÇÃO — altere apenas estas duas linhas
+// =====================================================================
+var APPS_SCRIPT_URL = 'COLE_AQUI_A_URL_DO_APPS_SCRIPT';
+var CLIENT_ID       = '943637051517-bj6voqpq6dq39c8lf7rnis5bv8artfjk.apps.googleusercontent.com';
+var DRIVE_SCOPE     = 'https://www.googleapis.com/auth/drive.file';
+
+// =====================================================================
+// ESTADO
+// =====================================================================
+var state = {
+  tela: 'loading',
+  municipios: [],
+  municipioSel: null,
+  escolas: [],
+  escolaSel: null,
+  linkPasta: null,
+  folderId: null,
+  googleToken: null,
+  respostas: {},
+  responsavel: { nome: '', cargo: '', cpf: '' },
+  errors: [],
+  recibo: null,
+  geoNav: null,
+  geoStatus: 'pending'
+};
+
+// =====================================================================
+// UTILS
+// =====================================================================
+function esc(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function el(id) { return document.getElementById(id); }
+
+// =====================================================================
+// API — chamadas ao Apps Script via fetch
+// =====================================================================
+function apiGet(action, params, callback) {
+  var url = APPS_SCRIPT_URL + '?action=' + action;
+  if (params) {
+    for (var k in params) url += '&' + k + '=' + encodeURIComponent(params[k]);
+  }
+  fetch(url)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.error) callback(new Error(data.error), null);
+      else callback(null, data);
+    })
+    .catch(function(err) { callback(err, null); });
+}
+
+function apiPost(dados, callback) {
+  fetch(APPS_SCRIPT_URL, {
+    method: 'POST',
+    body: JSON.stringify(dados)
+  })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.error) callback(new Error(data.error), null);
+      else callback(null, data);
+    })
+    .catch(function(err) { callback(err, null); });
+}
+
+// =====================================================================
+// GEOLOCALIZAÇÃO
+// =====================================================================
+function captureGeoNav() {
+  if (!navigator.geolocation) { state.geoStatus = 'error'; return; }
+  navigator.geolocation.getCurrentPosition(
+    function(pos) {
+      state.geoNav = { lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy };
+      state.geoStatus = 'ok';
+      var g = el('geo-status'); if (g) g.innerHTML = renderGeo();
+    },
+    function(err) {
+      state.geoStatus = err.code === 1 ? 'denied' : 'error';
+      var g = el('geo-status'); if (g) g.innerHTML = renderGeo();
+    },
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+  );
+}
+
+function renderGeo() {
+  if (state.geoStatus === 'ok')
+    return '<div class="geo-info ok">&#128205; Localização capturada (' + state.geoNav.lat.toFixed(4) + ', ' + state.geoNav.lng.toFixed(4) + ') — precisão: ' + Math.round(state.geoNav.accuracy) + 'm</div>';
+  if (state.geoStatus === 'denied')
+    return '<div class="geo-info err">&#9888; Localização negada.</div>';
+  if (state.geoStatus === 'error')
+    return '<div class="geo-info err">&#9888; Não foi possível obter localização.</div>';
+  return '<div class="geo-info">&#128205; Obtendo localização...</div>';
+}
+
+// =====================================================================
+// GOOGLE IDENTITY SERVICES — OAuth do usuário
+// =====================================================================
+var _tokenClient = null;
+var _pendingCb   = null;
+
+function initGIS() {
+  _tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: CLIENT_ID,
+    scope: DRIVE_SCOPE,
+    callback: function(resp) {
+      if (resp.error) { if (_pendingCb) _pendingCb(null, resp.error); return; }
+      state.googleToken = resp.access_token;
+      if (_pendingCb) _pendingCb(resp.access_token, null);
+      _pendingCb = null;
+    }
+  });
+}
+
+function obterToken(callback) {
+  if (state.googleToken) { callback(state.googleToken, null); return; }
+  _pendingCb = callback;
+  _tokenClient.requestAccessToken({ prompt: '' });
+}
+
+// =====================================================================
+// UPLOAD DIRETO PARA O DRIVE
+// =====================================================================
+function uploadParaDrive(file, folderId, token, nomeArquivo, onProgress, callback) {
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var base64    = e.target.result.split(',')[1];
+    var metadata  = JSON.stringify({ name: nomeArquivo, parents: [folderId] });
+    var boundary  = 'tce_' + Date.now();
+    var body = '--' + boundary + '\r\n' +
+      'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
+      metadata + '\r\n' +
+      '--' + boundary + '\r\n' +
+      'Content-Type: ' + (file.type || 'application/octet-stream') + '\r\n' +
+      'Content-Transfer-Encoding: base64\r\n\r\n' +
+      base64 + '\r\n' +
+      '--' + boundary + '--';
+
+    var xhr = new XMLHttpRequest();
+    xhr.upload.onprogress = function(e) {
+      if (e.lengthComputable && onProgress) onProgress(Math.round(e.loaded / e.total * 100));
+    };
+    xhr.open('POST', 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink,name');
+    xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+    xhr.setRequestHeader('Content-Type', 'multipart/related; boundary=' + boundary);
+    xhr.onload = function() {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        callback(null, JSON.parse(xhr.responseText));
+      } else {
+        if (xhr.status === 401) state.googleToken = null;
+        callback('Erro ' + xhr.status + ' no upload', null);
+      }
+    };
+    xhr.onerror = function() { callback('Erro de rede', null); };
+    xhr.send(body);
+  };
+  reader.readAsDataURL(file);
+}
+
+// =====================================================================
+// RENDER
+// =====================================================================
+function render() {
+  var app = el('app'); if (!app) return;
+  switch (state.tela) {
+    case 'loading':    app.innerHTML = renderLoading('Carregando...'); break;
+    case 'municipio':  app.innerHTML = renderMunicipios(); break;
+    case 'escolas':    app.innerHTML = renderEscolas(); break;
+    case 'formulario': app.innerHTML = renderFormulario(); bindFormEvents(); break;
+    case 'enviando':   app.innerHTML = renderEnviando(); break;
+    case 'recibo':     app.innerHTML = renderRecibo(); break;
+  }
+  bindNavEvents();
+}
+
+function renderLoading(msg) {
+  return '<div class="container"><div class="loading"><div class="spinner"></div><div class="loading-text">' + esc(msg) + '</div></div></div>';
+}
+
+function renderEnviando() {
+  return '<div class="container"><div class="loading"><div class="spinner"></div>' +
+    '<div class="loading-text"><span id="msg-enviando">Enviando...</span><br>' +
+    '<div class="progress-bar"><div class="progress-fill" id="prog-bar" style="width:0%"></div></div>' +
+    '<span style="font-size:12px;color:#94a3b8">Não feche esta página.</span></div></div></div>';
+}
+
+// =====================================================================
+// TELA 1: MUNICÍPIOS
+// =====================================================================
+function renderMunicipios() {
+  var cards = '';
+  for (var i = 0; i < state.municipios.length; i++) {
+    var m = state.municipios[i];
+    cards += '<div class="card" data-action="sel-municipio" data-mun="' + esc(m.nome) + '">' +
+      '<span class="card-title">' + esc(m.nome) + '</span>' +
+      '<span class="badge">' + m.count + ' escola' + (m.count !== 1 ? 's' : '') + '</span></div>';
+  }
+  return '<div class="container">' +
+    '<div class="header-inst">' +
+    '<div class="sigla">Tribunal de Contas do Estado de Pernambuco</div>' +
+    '<h1>Monitoramento de Determinações</h1>' +
+    '<div class="sub">Operação Ordenada — Alimentação Escolar 2025</div></div>' +
+    '<div class="info-box"><p>Selecione o município para visualizar as escolas com determinações pendentes.</p></div>' +
+    '<div style="font-size:13px;font-weight:600;color:#64748b;margin-bottom:10px;">Selecione o município:</div>' +
+    cards + '</div>';
+}
+
+// =====================================================================
+// TELA 2: ESCOLAS
+// =====================================================================
+function renderEscolas() {
+  var cards = '';
+  for (var i = 0; i < state.escolas.length; i++) {
+    var e = state.escolas[i];
+    cards += '<div class="card" data-action="sel-escola" data-inep="' + esc(e.inep) + '">' +
+      '<div><div class="card-title">' + esc(e.inep) + ' — ' + esc(e.nome) + '</div></div>' +
+      '<span class="badge">' + e.irregularidades.length + ' ite' + (e.irregularidades.length !== 1 ? 'ns' : 'm') + '</span></div>';
+  }
+  return '<div class="container">' +
+    '<button class="btn-back" data-action="voltar-municipios">&#8592; Voltar</button>' +
+    '<div class="banner"><div class="tag">Município</div><h2>' + esc(state.municipioSel) + '</h2>' +
+    '<div class="info">' + state.escolas.length + ' escola' + (state.escolas.length !== 1 ? 's' : '') + ' com determinações</div></div>' +
+    '<input class="search-input" id="busca-escola" type="text" placeholder="Buscar por nome ou INEP...">' +
+    cards + '</div>';
+}
+
+// =====================================================================
+// TELA 3: FORMULÁRIO
+// =====================================================================
+function renderFormulario() {
+  var e = state.escolaSel;
+  var irregs = e.irregularidades;
+
+  var groups = [], lastKey = '';
+  for (var i = 0; i < irregs.length; i++) {
+    var key = irregs[i].dim + '|||' + irregs[i].sub;
+    if (key !== lastKey) { groups.push({ dim: irregs[i].dim, sub: irregs[i].sub, items: [] }); lastKey = key; }
+    groups[groups.length-1].items.push(irregs[i]);
+  }
+
+  var pastaHtml = state.linkPasta
+    ? '<div class="info-box" style="border-color:#bfdbfe;background:#eff6ff;margin-bottom:24px">' +
+      '<p style="font-size:13px;color:#1e40af;font-weight:700;margin-bottom:6px">&#128193; Pasta de comprovação desta escola</p>' +
+      '<p style="font-size:13px;color:#1e40af;margin-bottom:10px">Os arquivos anexados neste formulário serão enviados para esta pasta automaticamente.</p>' +
+      '<a href="' + esc(state.linkPasta) + '" target="_blank" style="display:inline-block;background:#1d4ed8;color:#fff;padding:8px 18px;border-radius:6px;font-size:13px;font-weight:700;text-decoration:none">Ver pasta no Google Drive &#8594;</a></div>'
+    : '';
+
+  var groupsHtml = '';
+  for (var g = 0; g < groups.length; g++) {
+    var grp = groups[g];
+    var dc  = grp.dim.toUpperCase().indexOf('ALIM') >= 0 ? 'alim' : 'infra';
+    var items = '';
+    for (var j = 0; j < grp.items.length; j++) {
+      var ir = grp.items[j], r = state.respostas[ir.cod] || {};
+      items += '<div class="irreg-item">' +
+        '<div class="irreg-texto">' + esc(ir.texto) + '</div>' +
+        '<div class="irreg-criterio">Critério: ' + esc(ir.criterio) + '</div>' +
+        '<div class="form-grid" style="margin-top:12px">' +
+        '<div><label class="form-label">Status *</label>' +
+        '<select class="form-select" data-field="status" data-cod="' + esc(ir.cod) + '">' +
+        '<option value="">Selecione...</option>' +
+        '<option value="cumprida"' + (r.status==='cumprida'?' selected':'') + '>Irregularidade corrigida</option>' +
+        '<option value="parcial"' + (r.status==='parcial'?' selected':'') + '>Correção em andamento</option>' +
+        '<option value="nao_cumprida"' + (r.status==='nao_cumprida'?' selected':'') + '>Ainda não corrigida</option>' +
+        '</select></div>' +
+        '<div><label class="form-label">Comprovação (foto / PDF / vídeo)</label>' +
+        '<input type="file" class="form-input" accept="image/*,video/*,.pdf" data-field="arquivo" data-cod="' + esc(ir.cod) + '" style="padding:6px 12px;font-size:12px">' +
+        (r.arquivoNome ? '<div style="font-size:11px;color:#166534;margin-top:3px">&#10003; ' + esc(r.arquivoNome) + '</div>' : '') +
+        '</div>' +
+        '<div class="full"><label class="form-label">Justificativa / Observações</label>' +
+        '<textarea class="form-textarea" rows="2" data-field="justificativa" data-cod="' + esc(ir.cod) + '">' + esc(r.justificativa||'') + '</textarea></div>' +
+        '</div></div>';
+    }
+    groupsHtml += '<div style="margin-bottom:28px">' +
+      '<div class="dim-header ' + dc + '"><span>' + esc(grp.dim) + '</span><span class="sep">›</span><span class="sub-name">' + esc(grp.sub) + '</span></div>' +
+      items + '</div>';
+  }
+
+  var errsHtml = '';
+  if (state.errors.length) {
+    errsHtml = '<div class="error-box"><div class="etitle">Campos obrigatórios pendentes:</div>';
+    for (var ei = 0; ei < state.errors.length; ei++) errsHtml += '<div class="eitem">• ' + esc(state.errors[ei]) + '</div>';
+    errsHtml += '</div>';
+  }
+
+  return '<div class="container">' +
+    '<button class="btn-back" data-action="voltar-escolas">&#8592; Voltar às escolas</button>' +
+    '<div class="banner"><div class="tag">Formulário de Comprovação</div>' +
+    '<h2>' + esc(e.inep) + ' — ' + esc(e.nome) + '</h2>' +
+    '<div class="info">' + esc(e.municipio) + '</div>' +
+    '<div class="stats"><div class="stat"><strong>' + irregs.length + '</strong> irregularidade' + (irregs.length!==1?'s':'') + '</div></div></div>' +
+    '<div style="margin-bottom:16px" id="geo-status">' + renderGeo() + '</div>' +
+    pastaHtml +
+    '<div class="info-box" style="margin-bottom:28px">' +
+    '<h3 style="font-size:15px;font-weight:700;color:#0f172a;margin-bottom:14px">Identificação do Responsável</h3>' +
+    '<div class="form-grid">' +
+    '<div class="full"><label class="form-label">Nome completo *</label><input class="form-input" type="text" id="resp-nome" value="' + esc(state.responsavel.nome) + '" placeholder="Nome do gestor ou responsável"></div>' +
+    '<div><label class="form-label">Cargo *</label><input class="form-input" type="text" id="resp-cargo" value="' + esc(state.responsavel.cargo) + '" placeholder="Ex: Secretário de Educação"></div>' +
+    '<div><label class="form-label">CPF *</label><input class="form-input" type="text" id="resp-cpf" value="' + esc(state.responsavel.cpf) + '" placeholder="000.000.000-00"></div>' +
+    '</div></div>' +
+    groupsHtml + errsHtml +
+    '<button class="btn-primary" id="btn-enviar">Enviar Comprovação e Gerar Recibo</button></div>';
+}
+
+// =====================================================================
+// TELA 4: RECIBO
+// =====================================================================
+function renderRecibo() {
+  var d = state.recibo, e = d.escola, irregs = e.irregularidades;
+  var labels = { cumprida: '&#10003; Corrigida', parcial: '&#9680; Em andamento', nao_cumprida: '&#10007; Não corrigida' };
+  var counts = { cumprida: 0, parcial: 0, nao_cumprida: 0 };
+
+  var groups = [], lastKey = '';
+  for (var i = 0; i < irregs.length; i++) {
+    var key = irregs[i].dim + '|||' + irregs[i].sub;
+    if (key !== lastKey) { groups.push({ dim: irregs[i].dim, sub: irregs[i].sub, items: [] }); lastKey = key; }
+    groups[groups.length-1].items.push(irregs[i]);
+    counts[(d.respostas[irregs[i].cod]||{}).status || 'nao_cumprida']++;
+  }
+
+  var groupsHtml = '';
+  for (var g = 0; g < groups.length; g++) {
+    var grp = groups[g], dc = grp.dim.toUpperCase().indexOf('ALIM') >= 0 ? 'alim' : 'infra';
+    var items = '';
+    for (var j = 0; j < grp.items.length; j++) {
+      var ir = grp.items[j], r = d.respostas[ir.cod] || {}, st = r.status || 'nao_cumprida';
+      items += '<div class="recibo-item">' +
+        '<div class="status-badge status-' + st + '">' + (labels[st]||'—') + '</div>' +
+        '<div style="flex:1"><div style="color:#1e293b;line-height:1.4">' + esc(ir.texto) + '</div>' +
+        (r.justificativa ? '<div style="color:#64748b;font-size:12px;margin-top:2px;font-style:italic">' + esc(r.justificativa) + '</div>' : '') +
+        (r.arquivoLink ? '<div style="font-size:11px;margin-top:2px"><a href="' + esc(r.arquivoLink) + '" target="_blank" style="color:#1d4ed8">&#128206; ' + esc(r.arquivoNome||'Ver arquivo') + '</a></div>' : '') +
+        '</div></div>';
+    }
+    groupsHtml += '<div style="margin-bottom:16px"><div class="dim-label ' + dc + '">' + esc(grp.dim) + ' › ' + esc(grp.sub) + '</div>' + items + '</div>';
+  }
+
+  return '<div class="container">' +
+    '<div class="recibo">' +
+    '<div class="recibo-header">' +
+    '<div style="font-size:11px;letter-spacing:3px;text-transform:uppercase;opacity:0.7;margin-bottom:4px">Tribunal de Contas do Estado de Pernambuco</div>' +
+    '<div style="font-size:20px;font-weight:800;font-family:\'Playfair Display\',Georgia,serif">Recibo de Comprovação de Determinações</div>' +
+    '<div style="font-size:12px;opacity:0.7;margin-top:4px">Operação Ordenada — Alimentação Escolar 2025</div></div>' +
+    '<div class="recibo-body">' +
+    '<div class="recibo-grid">' +
+    '<div><strong>INEP:</strong> ' + esc(e.inep) + '</div><div><strong>Município:</strong> ' + esc(e.municipio) + '</div>' +
+    '<div class="full"><strong>Escola:</strong> ' + esc(e.nome) + '</div>' +
+    '<div><strong>Responsável:</strong> ' + esc(d.responsavel.nome) + '</div><div><strong>CPF:</strong> ' + esc(d.responsavel.cpf) + '</div>' +
+    '<div><strong>Cargo:</strong> ' + esc(d.responsavel.cargo) + '</div><div><strong>Data:</strong> ' + esc(d.dataPreenchimento) + '</div>' +
+    '<div><strong>Protocolo:</strong> ' + esc(d.protocolo) + '</div></div>' +
+    '<div style="border-top:1px solid #e2e8f0;padding-top:16px">' +
+    '<div style="font-size:14px;font-weight:700;color:#0f172a;margin-bottom:14px">Resultado da Comprovação</div>' +
+    groupsHtml + '</div>' +
+    '<div class="recibo-resumo">' +
+    '<div><div class="num" style="color:#166534">' + counts.cumprida + '</div><div class="rlabel">&#10003; Corrigida</div></div>' +
+    '<div><div class="num" style="color:#854d0e">' + counts.parcial + '</div><div class="rlabel">&#9680; Em andamento</div></div>' +
+    '<div><div class="num" style="color:#991b1b">' + counts.nao_cumprida + '</div><div class="rlabel">&#10007; Não corrigida</div></div></div>' +
+    '<div class="recibo-footer">Recibo gerado pelo sistema de monitoramento do TCE-PE.<br>Protocolo: ' + esc(d.protocolo) + '<br>Anexe este documento no Sistema de Pós-Julgamento (SPJ).</div>' +
+    '</div></div>' +
+    '<div class="actions no-print">' +
+    '<button class="btn-primary" onclick="window.print()">&#128438; Imprimir / Salvar PDF</button>' +
+    '<button class="btn-secondary" data-action="nova-consulta">Nova consulta</button></div></div>';
+}
+
+// =====================================================================
+// BIND EVENTS
+// =====================================================================
+function bindNavEvents() {
+  var els = document.querySelectorAll('[data-action]');
+  for (var i = 0; i < els.length; i++) {
+    (function(elem) { elem.onclick = function() { handleAction(elem.getAttribute('data-action'), elem); }; })(els[i]);
+  }
+  var busca = el('busca-escola');
+  if (busca) busca.oninput = function() {
+    var q = this.value.toLowerCase();
+    var cards = document.querySelectorAll('[data-action="sel-escola"]');
+    for (var i = 0; i < cards.length; i++) {
+      var inep = cards[i].getAttribute('data-inep'), esc_ = null;
+      for (var j = 0; j < state.escolas.length; j++) { if (state.escolas[j].inep === inep) { esc_ = state.escolas[j]; break; } }
+      if (esc_) cards[i].style.display = (esc_.nome.toLowerCase().indexOf(q)>=0 || esc_.inep.indexOf(q)>=0) ? '' : 'none';
+    }
+  };
+}
+
+function bindFormEvents() {
+  document.querySelectorAll('[data-field="status"]').forEach(function(elem) {
+    elem.onchange = function() {
+      var cod = elem.getAttribute('data-cod');
+      if (!state.respostas[cod]) state.respostas[cod] = {};
+      state.respostas[cod].status = elem.value;
+    };
+  });
+  document.querySelectorAll('[data-field="justificativa"]').forEach(function(elem) {
+    elem.oninput = function() {
+      var cod = elem.getAttribute('data-cod');
+      if (!state.respostas[cod]) state.respostas[cod] = {};
+      state.respostas[cod].justificativa = elem.value;
+    };
+  });
+  document.querySelectorAll('[data-field="arquivo"]').forEach(function(elem) {
+    elem.onchange = function() {
+      var cod = elem.getAttribute('data-cod'), file = elem.files[0];
+      if (!state.respostas[cod]) state.respostas[cod] = {};
+      state.respostas[cod].arquivoFile = file || null;
+      state.respostas[cod].arquivoNome = file ? file.name : null;
+    };
+  });
+  var rN = el('resp-nome'), rC = el('resp-cargo'), rCp = el('resp-cpf');
+  if (rN)  rN.oninput  = function() { state.responsavel.nome  = this.value; };
+  if (rC)  rC.oninput  = function() { state.responsavel.cargo = this.value; };
+  if (rCp) rCp.oninput = function() { state.responsavel.cpf   = this.value; };
+  var btn = el('btn-enviar');
+  if (btn) btn.onclick = enviarFormulario;
+}
+
+// =====================================================================
+// AÇÕES
+// =====================================================================
+function handleAction(action, elem) {
+  if (action === 'sel-municipio') {
+    state.municipioSel = elem.getAttribute('data-mun');
+    state.tela = 'loading'; render();
+    apiGet('getEscolas', { municipio: state.municipioSel }, function(err, data) {
+      if (err) { alert('Erro: ' + err.message); state.tela = 'municipio'; render(); return; }
+      state.escolas = data; state.tela = 'escolas'; render();
+    });
+  } else if (action === 'sel-escola') {
+    var inep = elem.getAttribute('data-inep');
+    for (var i = 0; i < state.escolas.length; i++) { if (state.escolas[i].inep === inep) { state.escolaSel = state.escolas[i]; break; } }
+    state.respostas = {}; state.responsavel = { nome: '', cargo: '', cpf: '' };
+    state.errors = []; state.geoStatus = 'pending'; state.geoNav = null;
+    state.linkPasta = null; state.folderId = null;
+    state.tela = 'loading'; render();
+    captureGeoNav();
+    apiGet('getPasta', { inep: inep }, function(err, data) {
+      if (!err && data) { state.linkPasta = data.linkPasta; state.folderId = data.folderId; }
+      state.tela = 'formulario'; render();
+    });
+  } else if (action === 'voltar-municipios') {
+    state.tela = 'municipio'; state.municipioSel = null; state.escolas = []; render();
+  } else if (action === 'voltar-escolas') {
+    state.tela = 'escolas'; state.escolaSel = null; render();
+  } else if (action === 'nova-consulta') {
+    state.tela = 'municipio'; state.escolaSel = null; state.recibo = null; render();
+  }
+}
+
+// =====================================================================
+// ENVIAR FORMULÁRIO
+// =====================================================================
+function enviarFormulario() {
+  var errs = [], irregs = state.escolaSel.irregularidades;
+  if (!state.responsavel.nome.trim())  errs.push('Nome do responsável');
+  if (!state.responsavel.cargo.trim()) errs.push('Cargo do responsável');
+  if (!state.responsavel.cpf.trim())   errs.push('CPF do responsável');
+  for (var i = 0; i < irregs.length; i++) {
+    if (!(state.respostas[irregs[i].cod]||{}).status) errs.push('Status: "' + irregs[i].texto.slice(0,50) + '..."');
+  }
+  if (errs.length) { state.errors = errs; render(); window.scrollTo({top:0,behavior:'smooth'}); return; }
+
+  state.errors = [];
+  var irregsComArq = irregs.filter(function(ir) { return state.respostas[ir.cod] && state.respostas[ir.cod].arquivoFile; });
+
+  if (irregsComArq.length > 0 && state.folderId) {
+    obterToken(function(token, err) {
+      if (err || !token) { alert('Não foi possível autorizar o upload: ' + (err||'sem token')); return; }
+      state.googleToken = token;
+      state.tela = 'enviando'; render();
+      _uploadSequencial(irregsComArq, 0, {});
+    });
+  } else {
+    state.tela = 'enviando'; render();
+    _gravarPlanilha({});
+  }
+}
+
+function _uploadSequencial(irregsComArq, idx, links) {
+  if (idx >= irregsComArq.length) { _gravarPlanilha(links); return; }
+
+  var ir       = irregsComArq[idx];
+  var file     = state.respostas[ir.cod].arquivoFile;
+  var protocolo = state.escolaSel.inep + '-' + new Date().toISOString().replace(/[-T:.Z]/g,'').slice(0,14);
+  var nome     = protocolo + '_' + ir.cod + '_' + file.name;
+
+  var msgEl = el('msg-enviando'), progEl = el('prog-bar');
+  if (msgEl) msgEl.textContent = 'Enviando arquivo ' + (idx+1) + ' de ' + irregsComArq.length + ' (' + file.name + ')...';
+
+  uploadParaDrive(file, state.folderId, state.googleToken, nome,
+    function(pct) { if (progEl) progEl.style.width = pct + '%'; },
+    function(err, res) {
+      if (err) { alert('Erro ao enviar "' + file.name + '": ' + err); state.tela = 'formulario'; render(); return; }
+      links[ir.cod] = { nome: file.name, link: res.webViewLink };
+      if (progEl) progEl.style.width = '0%';
+      _uploadSequencial(irregsComArq, idx+1, links);
+    }
+  );
+}
+
+function _gravarPlanilha(links) {
+  var msgEl = el('msg-enviando');
+  if (msgEl) msgEl.textContent = 'Registrando respostas...';
+
+  var irregs = state.escolaSel.irregularidades;
+  var dadosEnvio = {
+    escola: { inep: state.escolaSel.inep, nome: state.escolaSel.nome, municipio: state.escolaSel.municipio },
+    responsavel: { nome: state.responsavel.nome, cargo: state.responsavel.cargo, cpf: state.responsavel.cpf },
+    respostas: {},
+    dataPreenchimento: new Date().toLocaleString('pt-BR')
+  };
+
+  for (var i = 0; i < irregs.length; i++) {
+    var ir = irregs[i], r = state.respostas[ir.cod]||{}, arq = links[ir.cod]||{};
+    dadosEnvio.respostas[ir.cod] = {
+      status: r.status||'nao_cumprida', justificativa: r.justificativa||'',
+      arquivoNome: arq.nome||'', arquivoLink: arq.link||'',
+      textoIrreg: ir.texto, dimensao: ir.dim, subdimensao: ir.sub,
+      geoNav: state.geoNav||{}
+    };
+  }
+
+  apiPost(dadosEnvio, function(err, result) {
+    if (err) { alert('Erro ao salvar: ' + err.message); state.tela = 'formulario'; render(); return; }
+    state.recibo = {
+      escola: state.escolaSel, responsavel: dadosEnvio.responsavel,
+      respostas: dadosEnvio.respostas, dataPreenchimento: dadosEnvio.dataPreenchimento,
+      protocolo: result.protocolo, timestamp: result.timestamp
+    };
+    state.tela = 'recibo'; render(); window.scrollTo({top:0});
+  });
+}
+
+// =====================================================================
+// INIT
+// =====================================================================
+window.onload = function() {
+  // Inicializar GIS
+  if (window.google && google.accounts) {
+    initGIS();
+  }
+
+  // Carregar municípios
+  apiGet('getMunicipios', null, function(err, data) {
+    if (err) {
+      el('app').innerHTML = '<div class="container"><div class="error-box"><div class="etitle">Erro ao carregar:</div><div class="eitem">' + esc(err.message) + '</div></div></div>';
+      return;
+    }
+    state.municipios = data.map(function(m) { return { nome: m, count: '...' }; });
+    state.tela = 'municipio';
+    render();
+  });
+};
+</script>
+</body>
+</html>
