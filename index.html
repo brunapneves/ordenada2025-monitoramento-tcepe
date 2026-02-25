@@ -101,9 +101,10 @@
 // =====================================================================
 // CONFIGURAÇÃO — altere apenas estas duas linhas
 // =====================================================================
-var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz1ZT4Uf35Me-ke3egUpTzbokyDxjHKvcvITnnUFVTj0yrUyYTijtcaGqlga-BcyNmqjg/exec';
+var APPS_SCRIPT_URL = 'COLE_AQUI_A_URL_DO_APPS_SCRIPT';
 var CLIENT_ID       = '943637051517-bj6voqpq6dq39c8lf7rnis5bv8artfjk.apps.googleusercontent.com';
 var DRIVE_SCOPE     = 'https://www.googleapis.com/auth/drive.file';
+var LOGO_URL        = 'https://drive.google.com/uc?export=view&id=1wVj1Ff7iCpBCyBSVjJ_69SIZGkmWBtlV';
 
 // =====================================================================
 // ESTADO
@@ -297,10 +298,10 @@ function renderMunicipios() {
   }
   return '<div class="container">' +
     '<div class="header-inst">' +
-    '<img src="logo2025.png" alt="TCE-PE" style="height:60px;margin-bottom:12px;object-fit:contain">' +
+    '<img src="' + LOGO_URL + '" alt="TCE-PE" style="height:60px;margin-bottom:12px;object-fit:contain">' +
     '<div class="sigla">Tribunal de Contas do Estado de Pernambuco</div>' +
-    '<h1>Portal de Comprovação do Cumprimento de Determinações</h1>' +
-    '<div class="sub">Operação Ordenada — Infraestrutura e Alimentação Escolar 2025</div></div>' +
+    '<h1>Monitoramento de Determinações</h1>' +
+    '<div class="sub">Operação Ordenada — Alimentação Escolar 2025</div></div>' +
     '<div class="info-box"><p>Selecione o município para visualizar as escolas com determinações pendentes.</p></div>' +
     '<div style="font-size:13px;font-weight:600;color:#64748b;margin-bottom:10px;">Selecione o município:</div>' +
     cards + '</div>';
@@ -360,14 +361,27 @@ function renderFormulario() {
         '<option value="nao_cumprida"' + (r.status==='nao_cumprida'?' selected':'') + '>Ainda não corrigida</option>' +
         '</select></div>' +
         (function() {
-          var compLabel = ir.comprovacao === 'pdf'   ? '&#128196; PDF' :
-                          ir.comprovacao === 'video' ? '&#127909; Vídeo' : '&#128247; Foto';
-          var accept    = ir.comprovacao === 'pdf'   ? '.pdf' :
-                          ir.comprovacao === 'video' ? 'video/*' : 'image/*';
-          return '<div><label class="form-label">Comprovação (' + compLabel + ')</label>' +
-            '<input type="file" class="form-input" accept="' + accept + '" data-field="arquivo" data-cod="' + esc(ir.cod) + '" style="padding:6px 12px;font-size:12px">' +
-            (r.arquivoNome ? '<div style="font-size:11px;color:#166534;margin-top:3px">&#10003; ' + esc(r.arquivoNome) + '</div>' : '') +
-            '</div>';
+          var tipos = Array.isArray(ir.comprovacao) ? ir.comprovacao : [ir.comprovacao || 'foto'];
+          var tipoMap = {
+            foto:  { label: '&#128247; Foto',     accept: 'image/*' },
+            video: { label: '&#127909; Vídeo',    accept: 'video/*' },
+            pdf:   { label: '&#128196; Documento', accept: '.pdf,.doc,.docx' }
+          };
+          var tiposLabel = tipos.map(function(t) { return tipoMap[t] ? tipoMap[t].label : t; }).join(' / ');
+          var html = '<div class="full"><label class="form-label">Comprovação (' + tiposLabel + ') — anexe ao menos um arquivo</label>' +
+            '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px">';
+          for (var ti = 0; ti < tipos.length; ti++) {
+            var tipo = tipos[ti];
+            var tm   = tipoMap[tipo] || { label: tipo, accept: '*' };
+            var arqInfo = (r.arquivos && r.arquivos[tipo]) ? r.arquivos[tipo] : null;
+            html += '<div style="flex:1;min-width:160px">' +
+              '<div style="font-size:11px;color:#64748b;margin-bottom:3px">' + tm.label + '</div>' +
+              '<input type="file" class="form-input" accept="' + tm.accept + '" data-field="arquivo" data-cod="' + esc(ir.cod) + '" data-tipo="' + tipo + '" style="padding:6px 12px;font-size:12px">' +
+              (arqInfo ? '<div style="font-size:11px;color:#166534;margin-top:3px">&#10003; ' + esc(arqInfo.nome) + '</div>' : '') +
+              '</div>';
+          }
+          html += '</div></div>';
+          return html;
         })() +
         '<div class="full"><label class="form-label">Justificativa / Observações</label>' +
         '<textarea class="form-textarea" rows="2" data-field="justificativa" data-cod="' + esc(ir.cod) + '">' + esc(r.justificativa||'') + '</textarea></div>' +
@@ -430,7 +444,11 @@ function renderRecibo() {
         '<div class="status-badge status-' + st + '">' + (labels[st]||'—') + '</div>' +
         '<div style="flex:1"><div style="color:#1e293b;line-height:1.4">' + esc(ir.texto) + '</div>' +
         (r.justificativa ? '<div style="color:#64748b;font-size:12px;margin-top:2px;font-style:italic">' + esc(r.justificativa) + '</div>' : '') +
-        (r.arquivoLink ? '<div style="font-size:11px;margin-top:2px"><a href="' + esc(r.arquivoLink) + '" target="_blank" style="color:#1d4ed8">&#128206; ' + esc(r.arquivoNome||'Ver arquivo') + '</a></div>' : '') +
+        (r.arquivos && r.arquivos.length > 0
+          ? r.arquivos.map(function(a) {
+              return '<div style="font-size:11px;margin-top:2px"><a href="' + esc(a.link) + '" target="_blank" style="color:#1d4ed8">&#128206; ' + esc(a.nome) + '</a></div>';
+            }).join('')
+          : '') +
         '</div></div>';
     }
     groupsHtml += '<div style="margin-bottom:16px"><div class="dim-label ' + dc + '">' + esc(grp.dim) + ' › ' + esc(grp.sub) + '</div>' + items + '</div>';
@@ -500,10 +518,16 @@ function bindFormEvents() {
   });
   document.querySelectorAll('[data-field="arquivo"]').forEach(function(elem) {
     elem.onchange = function() {
-      var cod = elem.getAttribute('data-cod'), file = elem.files[0];
+      var cod  = elem.getAttribute('data-cod');
+      var tipo = elem.getAttribute('data-tipo') || 'foto';
+      var file = elem.files[0];
       if (!state.respostas[cod]) state.respostas[cod] = {};
-      state.respostas[cod].arquivoFile = file || null;
-      state.respostas[cod].arquivoNome = file ? file.name : null;
+      if (!state.respostas[cod].arquivos) state.respostas[cod].arquivos = {};
+      if (file) {
+        state.respostas[cod].arquivos[tipo] = { file: file, nome: file.name };
+      } else {
+        delete state.respostas[cod].arquivos[tipo];
+      }
     };
   });
   var rN = el('resp-nome'), rC = el('resp-cargo'), rCp = el('resp-cpf');
@@ -560,7 +584,11 @@ function enviarFormulario() {
   if (errs.length) { state.errors = errs; render(); window.scrollTo({top:0,behavior:'smooth'}); return; }
 
   state.errors = [];
-  var irregsComArq = irregs.filter(function(ir) { return state.respostas[ir.cod] && state.respostas[ir.cod].arquivoFile; });
+  var irregsComArq = [];
+  irregs.forEach(function(ir) {
+    var arqs = (state.respostas[ir.cod] || {}).arquivos || {};
+    if (Object.keys(arqs).length > 0) irregsComArq.push(ir);
+  });
 
   if (irregsComArq.length > 0 && state.folderId) {
     obterToken(function(token, err) {
@@ -579,20 +607,41 @@ function _uploadSequencial(irregsComArq, idx, links) {
   if (idx >= irregsComArq.length) { _gravarPlanilha(links); return; }
 
   var ir       = irregsComArq[idx];
-  var file     = state.respostas[ir.cod].arquivoFile;
+  var arqs     = (state.respostas[ir.cod] || {}).arquivos || {};
+  var tipos    = Object.keys(arqs);
   var protocolo = state.escolaSel.inep + '-' + new Date().toISOString().replace(/[-T:.Z]/g,'').slice(0,14);
-  var nome     = protocolo + '_' + ir.cod + '_' + file.name;
+
+  if (!links[ir.cod]) links[ir.cod] = [];
+
+  _uploadTipos(ir, tipos, 0, arqs, protocolo, links, function() {
+    _uploadSequencial(irregsComArq, idx + 1, links);
+  });
+}
+
+function _uploadTipos(ir, tipos, tIdx, arqs, protocolo, links, done) {
+  if (tIdx >= tipos.length) { done(); return; }
+
+  var tipo  = tipos[tIdx];
+  var arq   = arqs[tipo];
+  var nome  = protocolo + '_' + ir.cod + '_' + tipo + '_' + arq.file.name;
+
+  var total = 0;
+  for (var k in (state.respostas || {})) {
+    var a = (state.respostas[k] || {}).arquivos || {};
+    total += Object.keys(a).length;
+  }
+  var atual = links[ir.cod].length + tIdx + 1;
 
   var msgEl = el('msg-enviando'), progEl = el('prog-bar');
-  if (msgEl) msgEl.textContent = 'Enviando arquivo ' + (idx+1) + ' de ' + irregsComArq.length + ' (' + file.name + ')...';
+  if (msgEl) msgEl.textContent = 'Enviando arquivo ' + atual + ' (' + arq.file.name + ')...';
 
-  uploadParaDrive(file, state.folderId, state.googleToken, nome,
+  uploadParaDrive(arq.file, state.folderId, state.googleToken, nome,
     function(pct) { if (progEl) progEl.style.width = pct + '%'; },
     function(err, res) {
-      if (err) { alert('Erro ao enviar "' + file.name + '": ' + err); state.tela = 'formulario'; render(); return; }
-      links[ir.cod] = { nome: file.name, link: res.webViewLink };
+      if (err) { alert('Erro ao enviar "' + arq.file.name + '": ' + err); state.tela = 'formulario'; render(); return; }
+      links[ir.cod].push({ tipo: tipo, nome: arq.file.name, link: res.webViewLink });
       if (progEl) progEl.style.width = '0%';
-      _uploadSequencial(irregsComArq, idx+1, links);
+      _uploadTipos(ir, tipos, tIdx + 1, arqs, protocolo, links, done);
     }
   );
 }
@@ -610,10 +659,10 @@ function _gravarPlanilha(links) {
   };
 
   for (var i = 0; i < irregs.length; i++) {
-    var ir = irregs[i], r = state.respostas[ir.cod]||{}, arq = links[ir.cod]||{};
+    var ir = irregs[i], r = state.respostas[ir.cod]||{}, arqList = links[ir.cod]||[];
     dadosEnvio.respostas[ir.cod] = {
       status: r.status||'nao_cumprida', justificativa: r.justificativa||'',
-      arquivoNome: arq.nome||'', arquivoLink: arq.link||'',
+      arquivos: arqList,  // [{tipo, nome, link}]
       textoIrreg: ir.texto, dimensao: ir.dim, subdimensao: ir.sub,
       geoNav: state.geoNav||{}
     };
