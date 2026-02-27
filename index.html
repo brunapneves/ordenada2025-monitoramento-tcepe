@@ -362,7 +362,7 @@ function renderEscolas() {
     } else if (statusEnvio === 'rascunho' && preench > 0) {
       progHtml = '<span class="prog-badge prog-partial">&#9679; ' + preench + '/' + total + ' preenchidas</span>';
     } else {
-      progHtml = '<span class="prog-badge prog-none">' + total + ' item' + (total !== 1 ? 'ns' : '') + '</span>';
+      progHtml = '<span class="prog-badge prog-none">' + total + (total !== 1 ? ' itens' : ' item') + '</span>';
     }
 
     cards += '<div class="card" data-action="sel-escola" data-inep="' + esc(e.inep) + '">' +
