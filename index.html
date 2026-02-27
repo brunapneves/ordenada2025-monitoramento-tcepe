@@ -358,7 +358,7 @@ function renderEscolas() {
 
     var progHtml;
     if (statusEnvio === 'finalizado') {
-      progHtml = '<span class="prog-badge prog-done">&#10003; Finalizado</span>';
+      progHtml = '<span class="prog-badge prog-done">&#10003; Formulário enviado</span>';
     } else if (statusEnvio === 'rascunho' && preench > 0) {
       progHtml = '<span class="prog-badge prog-partial">&#9679; ' + preench + '/' + total + ' preenchidas</span>';
     } else {
@@ -560,7 +560,7 @@ function renderRecibo() {
     '</div></div>' +
     '<div class="actions no-print">' +
     '<button class="btn-primary" onclick="window.print()">&#128438; Imprimir / Salvar PDF</button>' +
-    '<button class="btn-secondary" data-action="nova-consulta">Nova consulta</button></div></div>';
+    '<button class="btn-secondary" data-action="nova-consulta">Preencher outro formulário</button></div></div>';
 }
 
 // =====================================================================
@@ -772,6 +772,8 @@ function salvarRascunho() {
       }
     }
 
+    if (btnSalvar) { btnSalvar.disabled = true; btnSalvar.textContent = 'Salvando...'; }
+
     var dadosRascunho = _montarDadosEnvio('rascunho');
     apiPost(dadosRascunho, function(err, result) {
       if (btnSalvar) { btnSalvar.disabled = false; btnSalvar.textContent = '💾 Salvar rascunho'; }
@@ -799,7 +801,9 @@ function salvarRascunho() {
         return;
       }
       state.googleToken = token;
-      _uploadSequencial(irregsComArqNovo, 0, {}, _continuarSalvar);
+      _uploadSequencial(irregsComArqNovo, 0, {}, _continuarSalvar, function(atual, total, nomeArq) {
+        if (btnSalvar) btnSalvar.textContent = 'Salvando ' + atual + '/' + total + '...';
+      });
     });
   } else {
     _continuarSalvar({});
@@ -846,7 +850,7 @@ function enviarFormulario() {
       if (err || !token) { alert('Não foi possível autorizar o upload: ' + (err||'sem token')); return; }
       state.googleToken = token;
       state.tela = 'enviando'; render();
-      _uploadSequencial(irregsComArqNovo, 0, {}, _continuarEnvio);
+      _uploadSequencial(irregsComArqNovo, 0, {}, _continuarEnvio, null);
     });
   } else {
     state.tela = 'enviando'; render();
@@ -883,37 +887,49 @@ function _montarDadosEnvio(tipo) {
   return dados;
 }
 
-function _uploadSequencial(irregsComArq, idx, links, done) {
+function _uploadSequencial(irregsComArq, idx, links, done, onProgress) {
   if (idx >= irregsComArq.length) { done(links); return; }
 
   var ir       = irregsComArq[idx];
   var arqs     = (state.respostas[ir.cod] || {}).arquivos || {};
-  var tipos    = Object.keys(arqs).filter(function(t) { return arqs[t].file; }); // só os novos
+  var tipos    = Object.keys(arqs).filter(function(t) { return arqs[t].file; });
   var protocolo = state.escolaSel.inep + '-' + new Date().toISOString().replace(/[-T:.Z]/g,'').slice(0,14);
 
   if (!links[ir.cod]) links[ir.cod] = [];
 
+  // Calcular total de arquivos novos para o progresso
+  if (!_uploadSequencial._total) {
+    var total = 0;
+    irregsComArq.forEach(function(ir2) {
+      var a2 = (state.respostas[ir2.cod] || {}).arquivos || {};
+      Object.keys(a2).forEach(function(t) { if (a2[t].file) total++; });
+    });
+    _uploadSequencial._total = total;
+    _uploadSequencial._atual = 0;
+  }
+
   _uploadTipos(ir, tipos, 0, arqs, protocolo, links, function() {
-    _uploadSequencial(irregsComArq, idx + 1, links, done);
-  });
+    _uploadSequencial._total = null; // reset ao terminar
+    _uploadSequencial._atual = null;
+    _uploadSequencial(irregsComArq, idx + 1, links, done, onProgress);
+  }, onProgress);
 }
 
-function _uploadTipos(ir, tipos, tIdx, arqs, protocolo, links, done) {
+function _uploadTipos(ir, tipos, tIdx, arqs, protocolo, links, done, onProgress) {
   if (tIdx >= tipos.length) { done(); return; }
 
   var tipo  = tipos[tIdx];
   var arq   = arqs[tipo];
   var nome  = protocolo + '_' + ir.cod + '_' + tipo + '_' + arq.file.name;
 
-  var total = 0;
-  for (var k in (state.respostas || {})) {
-    var a = (state.respostas[k] || {}).arquivos || {};
-    for (var t in a) { if (a[t].file) total++; }
+  // Incrementar contador e notificar
+  if (onProgress) {
+    _uploadSequencial._atual = (_uploadSequencial._atual || 0) + 1;
+    onProgress(_uploadSequencial._atual, _uploadSequencial._total || 1, arq.file.name);
   }
-  var atual = links[ir.cod].length + tIdx + 1;
 
   var msgEl = el('msg-enviando'), progEl = el('prog-bar');
-  if (msgEl) msgEl.textContent = 'Enviando arquivo ' + atual + ' (' + arq.file.name + ')...';
+  if (msgEl) msgEl.textContent = 'Enviando arquivo ' + (_uploadSequencial._atual||'') + ' (' + arq.file.name + ')...';
 
   function _doUpload() {
     uploadParaDrive(arq.file, state.folderId, state.googleToken, nome,
@@ -922,7 +938,7 @@ function _uploadTipos(ir, tipos, tIdx, arqs, protocolo, links, done) {
         if (err) { alert('Erro ao enviar "' + arq.file.name + '": ' + err); state.tela = 'formulario'; render(); return; }
         links[ir.cod].push({ tipo: tipo, nome: arq.file.name, link: res.webViewLink, fileId: res.id });
         if (progEl) progEl.style.width = '0%';
-        _uploadTipos(ir, tipos, tIdx + 1, arqs, protocolo, links, done);
+        _uploadTipos(ir, tipos, tIdx + 1, arqs, protocolo, links, done, onProgress);
       }
     );
   }
