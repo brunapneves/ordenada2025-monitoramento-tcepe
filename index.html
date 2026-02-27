@@ -89,6 +89,23 @@
       .no-print { display: none !important; }
       .recibo { border: 1px solid #000; }
     }
+    /* ── Progresso / status de escola ── */
+    .prog-badge { display:inline-flex; align-items:center; gap:5px; border-radius:20px; padding:3px 10px; font-size:11px; font-weight:700; white-space:nowrap; }
+    .prog-none  { background:#f1f5f9; color:#64748b; }
+    .prog-partial { background:#fef9c3; color:#854d0e; }
+    .prog-done  { background:#dcfce7; color:#166534; }
+    /* ── Botão salvar ── */
+    .btn-salvar { width:100%; padding:12px; font-size:14px; font-weight:700; background:#fff; color:#00416d; border:2px solid #00416d; border-radius:8px; cursor:pointer; font-family:'DM Sans',sans-serif; margin-bottom:10px; transition:background 0.15s,color 0.15s; }
+    .btn-salvar:hover { background:#f0f7ff; }
+    .btn-salvar:disabled { opacity:0.5; cursor:not-allowed; }
+    .save-feedback { text-align:center; font-size:12px; color:#166534; font-weight:600; margin-bottom:8px; min-height:18px; }
+    /* ── Arquivo já enviado ── */
+    .arq-enviado { display:flex; align-items:center; gap:8px; padding:6px 10px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:6px; margin-top:4px; font-size:12px; }
+    .arq-enviado a { color:#166534; font-weight:600; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .arq-enviado .btn-subst { background:none; border:none; cursor:pointer; color:#dc2626; font-size:11px; font-weight:700; padding:0; flex-shrink:0; }
+    /* ── Banner rascunho ── */
+    .rascunho-aviso { background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:10px 16px; margin-bottom:16px; font-size:13px; color:#92400e; display:flex; align-items:center; gap:8px; }
+    .rascunho-aviso.finalizado { background:#f0fdf4; border-color:#bbf7d0; color:#166534; }
   </style>
 </head>
 <body>
@@ -101,7 +118,7 @@
 // =====================================================================
 // CONFIGURAÇÃO — altere apenas estas duas linhas
 // =====================================================================
-var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz1ZT4Uf35Me-ke3egUpTzbokyDxjHKvcvITnnUFVTj0yrUyYTijtcaGqlga-BcyNmqjg/exec';
+var APPS_SCRIPT_URL = 'COLE_AQUI_A_URL_DO_APPS_SCRIPT';
 var CLIENT_ID       = '943637051517-bj6voqpq6dq39c8lf7rnis5bv8artfjk.apps.googleusercontent.com';
 var DRIVE_SCOPE     = 'https://www.googleapis.com/auth/drive.file';
 
@@ -122,7 +139,8 @@ var state = {
   errors: [],
   recibo: null,
   geoNav: null,
-  geoStatus: 'pending'
+  geoStatus: 'pending',
+  rascunho: null  // { found, statusEnvio, timestamp, dados } carregado ao abrir formulário
 };
 
 // =====================================================================
@@ -266,7 +284,7 @@ function render() {
     case 'loading':    app.innerHTML = renderLoading('Carregando...'); break;
     case 'municipio':  app.innerHTML = renderMunicipios(); break;
     case 'escolas':    app.innerHTML = renderEscolas(); break;
-    case 'formulario': app.innerHTML = renderFormulario(); bindFormEvents(); break;
+    case 'formulario': app.innerHTML = renderFormulario(); bindFormEvents(); bindSubstArqEvents(); break;
     case 'enviando':   app.innerHTML = renderEnviando(); break;
     case 'recibo':     app.innerHTML = renderRecibo(); break;
   }
@@ -300,7 +318,7 @@ function renderMunicipios() {
     '<img src="logo2025.png" alt="TCE-PE" style="height:60px;margin-bottom:12px;object-fit:contain">' +
     '<div class="sigla">Tribunal de Contas do Estado de Pernambuco</div>' +
     '<h1>Monitoramento de Determinações</h1>' +
-    '<div class="sub">Operação Ordenada — Infraestrutura e Alimentação Escolar 2025</div></div>' +
+    '<div class="sub">Operação Ordenada — Alimentação Escolar 2025</div></div>' +
     '<div class="info-box"><p>Selecione o município para visualizar as escolas com determinações pendentes.</p></div>' +
     '<div style="font-size:13px;font-weight:600;color:#64748b;margin-bottom:10px;">Selecione o município:</div>' +
     cards + '</div>';
@@ -313,9 +331,22 @@ function renderEscolas() {
   var cards = '';
   for (var i = 0; i < state.escolas.length; i++) {
     var e = state.escolas[i];
+    var total = e.irregularidades ? e.irregularidades.length : 0;
+    var preench = e.preenchidas || 0;
+    var statusEnvio = e.statusEnvio || 'nenhum';
+
+    var progHtml;
+    if (statusEnvio === 'finalizado') {
+      progHtml = '<span class="prog-badge prog-done">&#10003; Finalizado</span>';
+    } else if (statusEnvio === 'rascunho' && preench > 0) {
+      progHtml = '<span class="prog-badge prog-partial">&#9679; ' + preench + '/' + total + ' preenchidas</span>';
+    } else {
+      progHtml = '<span class="prog-badge prog-none">' + total + ' item' + (total !== 1 ? 'ns' : '') + '</span>';
+    }
+
     cards += '<div class="card" data-action="sel-escola" data-inep="' + esc(e.inep) + '">' +
       '<div><div class="card-title">' + esc(e.inep) + ' — ' + esc(e.nome) + '</div></div>' +
-      '<span class="badge">' + e.irregularidades.length + ' ite' + (e.irregularidades.length !== 1 ? 'ns' : 'm') + '</span></div>';
+      progHtml + '</div>';
   }
   return '<div class="container">' +
     '<button class="btn-back" data-action="voltar-municipios">&#8592; Voltar</button>' +
@@ -339,7 +370,17 @@ function renderFormulario() {
     groups[groups.length-1].items.push(irregs[i]);
   }
 
-  var pastaHtml = ''; // pasta oculta do jurisdicionado
+  var pastaHtml = '';
+
+  // ── Aviso de rascunho / já finalizado ──
+  var avisoHtml = '';
+  if (state.rascunho && state.rascunho.found) {
+    if (state.rascunho.statusEnvio === 'finalizado') {
+      avisoHtml = '<div class="rascunho-aviso finalizado">&#10003; Este formulário foi finalizado em ' + esc(state.rascunho.timestamp) + '. Você está editando uma nova submissão.</div>';
+    } else {
+      avisoHtml = '<div class="rascunho-aviso">&#128190; Rascunho carregado — salvo em ' + esc(state.rascunho.timestamp) + '.</div>';
+    }
+  }
 
   var groupsHtml = '';
   for (var g = 0; g < groups.length; g++) {
@@ -359,11 +400,11 @@ function renderFormulario() {
         '<option value="parcial"' + (r.status==='parcial'?' selected':'') + '>Correção em andamento</option>' +
         '<option value="nao_cumprida"' + (r.status==='nao_cumprida'?' selected':'') + '>Ainda não corrigida</option>' +
         '</select></div>' +
-        (function() {
+        (function(ir, r) {
           var tipos = Array.isArray(ir.comprovacao) ? ir.comprovacao : [ir.comprovacao || 'foto'];
           var tipoMap = {
-            foto:  { label: '&#128247; Foto',     accept: 'image/*' },
-            video: { label: '&#127909; Vídeo',    accept: 'video/*' },
+            foto:  { label: '&#128247; Foto',      accept: 'image/*' },
+            video: { label: '&#127909; Vídeo',     accept: 'video/*' },
             pdf:   { label: '&#128196; Documento', accept: '.pdf,.doc,.docx' }
           };
           var tiposLabel = tipos.map(function(t) { return tipoMap[t] ? tipoMap[t].label : t; }).join(' / ');
@@ -373,15 +414,27 @@ function renderFormulario() {
             var tipo = tipos[ti];
             var tm   = tipoMap[tipo] || { label: tipo, accept: '*' };
             var arqInfo = (r.arquivos && r.arquivos[tipo]) ? r.arquivos[tipo] : null;
+
             html += '<div style="flex:1;min-width:160px">' +
-              '<div style="font-size:11px;color:#64748b;margin-bottom:3px">' + tm.label + '</div>' +
-              '<input type="file" class="form-input" accept="' + tm.accept + '" data-field="arquivo" data-cod="' + esc(ir.cod) + '" data-tipo="' + tipo + '" style="padding:6px 12px;font-size:12px">' +
-              (arqInfo ? '<div style="font-size:11px;color:#166534;margin-top:3px">&#10003; ' + esc(arqInfo.nome) + '</div>' : '') +
-              '</div>';
+              '<div style="font-size:11px;color:#64748b;margin-bottom:3px">' + tm.label + '</div>';
+
+            if (arqInfo && arqInfo.link) {
+              // Arquivo já enviado ao Drive — mostrar link + botão substituir
+              html += '<div class="arq-enviado" id="arq-env-' + esc(ir.cod) + '-' + tipo + '">' +
+                '<a href="' + esc(arqInfo.link) + '" target="_blank">&#128206; ' + esc(arqInfo.nome) + '</a>' +
+                '<button class="btn-subst" data-action="substituir-arq" data-cod="' + esc(ir.cod) + '" data-tipo="' + tipo + '" data-fileid="' + esc(arqInfo.fileId||'') + '">&#128259; Substituir</button>' +
+                '</div>' +
+                '<input type="file" class="form-input" accept="' + tm.accept + '" data-field="arquivo" data-cod="' + esc(ir.cod) + '" data-tipo="' + tipo + '" style="padding:6px 12px;font-size:12px;display:none" id="inp-' + esc(ir.cod) + '-' + tipo + '">';
+            } else {
+              var arqLocal = arqInfo;
+              html += '<input type="file" class="form-input" accept="' + tm.accept + '" data-field="arquivo" data-cod="' + esc(ir.cod) + '" data-tipo="' + tipo + '" style="padding:6px 12px;font-size:12px">' +
+                (arqLocal ? '<div style="font-size:11px;color:#166534;margin-top:3px">&#10003; ' + esc(arqLocal.nome) + '</div>' : '');
+            }
+            html += '</div>';
           }
           html += '</div></div>';
           return html;
-        })() +
+        })(ir, r) +
         '<div class="full"><label class="form-label">Justificativa / Observações</label>' +
         '<textarea class="form-textarea" rows="2" data-field="justificativa" data-cod="' + esc(ir.cod) + '">' + esc(r.justificativa||'') + '</textarea></div>' +
         '</div></div>';
@@ -398,12 +451,19 @@ function renderFormulario() {
     errsHtml += '</div>';
   }
 
+  // Contagem de preenchidas (para indicador no botão salvar)
+  var totalIrregs = irregs.length, totalPreench = 0;
+  for (var pi = 0; pi < irregs.length; pi++) {
+    if ((state.respostas[irregs[pi].cod]||{}).status) totalPreench++;
+  }
+
   return '<div class="container">' +
     '<button class="btn-back" data-action="voltar-escolas">&#8592; Voltar às escolas</button>' +
     '<div class="banner"><div class="tag">Formulário de Comprovação</div>' +
     '<h2>' + esc(e.inep) + ' — ' + esc(e.nome) + '</h2>' +
     '<div class="info">' + esc(e.municipio) + '</div>' +
-    '<div class="stats"><div class="stat"><strong>' + irregs.length + '</strong> irregularidade' + (irregs.length!==1?'s':'') + '</div></div></div>' +
+    '<div class="stats"><div class="stat"><strong>' + totalPreench + '/' + totalIrregs + '</strong> preenchidas</div></div></div>' +
+    avisoHtml +
     '<div style="margin-bottom:16px" id="geo-status">' + renderGeo() + '</div>' +
     pastaHtml +
     '<div class="info-box" style="margin-bottom:28px">' +
@@ -414,7 +474,9 @@ function renderFormulario() {
     '<div><label class="form-label">CPF *</label><input class="form-input" type="text" id="resp-cpf" value="' + esc(state.responsavel.cpf) + '" placeholder="000.000.000-00"></div>' +
     '</div></div>' +
     groupsHtml + errsHtml +
-    '<button class="btn-primary" id="btn-enviar">Enviar Comprovação e Gerar Recibo</button></div>';
+    '<div class="save-feedback" id="save-feedback"></div>' +
+    '<button class="btn-salvar" id="btn-salvar">&#128190; Salvar rascunho</button>' +
+    '<button class="btn-primary" id="btn-enviar">Finalizar e gerar recibo</button></div>';
 }
 
 // =====================================================================
@@ -523,6 +585,7 @@ function bindFormEvents() {
       if (!state.respostas[cod]) state.respostas[cod] = {};
       if (!state.respostas[cod].arquivos) state.respostas[cod].arquivos = {};
       if (file) {
+        // Novo arquivo local — limpa o link anterior (será substituído no upload)
         state.respostas[cod].arquivos[tipo] = { file: file, nome: file.name };
       } else {
         delete state.respostas[cod].arquivos[tipo];
@@ -533,8 +596,40 @@ function bindFormEvents() {
   if (rN)  rN.oninput  = function() { state.responsavel.nome  = this.value; };
   if (rC)  rC.oninput  = function() { state.responsavel.cargo = this.value; };
   if (rCp) rCp.oninput = function() { state.responsavel.cpf   = this.value; };
+
+  // Botão salvar rascunho
+  var btnSalvar = el('btn-salvar');
+  if (btnSalvar) btnSalvar.onclick = salvarRascunho;
+
+  // Botão finalizar
   var btn = el('btn-enviar');
   if (btn) btn.onclick = enviarFormulario;
+}
+
+// Ação de substituir arquivo já enviado
+function bindSubstArqEvents() {
+  document.querySelectorAll('[data-action="substituir-arq"]').forEach(function(btn) {
+    btn.onclick = function() {
+      var cod    = btn.getAttribute('data-cod');
+      var tipo   = btn.getAttribute('data-tipo');
+      var fileId = btn.getAttribute('data-fileid');
+
+      // Marcar o arquivo existente para deleção após novo upload
+      if (!state.respostas[cod]) state.respostas[cod] = {};
+      if (!state.respostas[cod].arquivos) state.respostas[cod].arquivos = {};
+      // Guardar fileId do antigo para deletar depois do upload
+      state.respostas[cod].arquivos[tipo] = { substituindo: true, oldFileId: fileId };
+
+      // Esconder o bloco "arq-enviado" e mostrar o input file
+      var divEnv = el('arq-env-' + cod + '-' + tipo);
+      var inp    = el('inp-' + cod + '-' + tipo);
+      if (divEnv) divEnv.style.display = 'none';
+      if (inp)    { inp.style.display = ''; inp.onchange = function() {
+        var file = inp.files[0];
+        if (file) state.respostas[cod].arquivos[tipo] = { file: file, nome: file.name, oldFileId: fileId };
+      }; }
+    };
+  });
 }
 
 // =====================================================================
@@ -551,15 +646,55 @@ function handleAction(action, elem) {
   } else if (action === 'sel-escola') {
     var inep = elem.getAttribute('data-inep');
     for (var i = 0; i < state.escolas.length; i++) { if (state.escolas[i].inep === inep) { state.escolaSel = state.escolas[i]; break; } }
+
+    // Se finalizado, pedir confirmação
+    if (state.escolaSel && state.escolaSel.statusEnvio === 'finalizado') {
+      if (!confirm('O formulário da escola "' + state.escolaSel.nome + '" já foi finalizado.\n\nDeseja preencher novamente? Os dados anteriores serão carregados.')) return;
+    }
+
     state.respostas = {}; state.responsavel = { nome: '', cargo: '', cpf: '' };
     state.errors = []; state.geoStatus = 'pending'; state.geoNav = null;
-    state.linkPasta = null; state.folderId = null;
+    state.linkPasta = null; state.folderId = null; state.rascunho = null;
     state.tela = 'loading'; render();
     captureGeoNav();
+
+    // Carregar pasta e rascunho em paralelo
+    var pastaOk = false, rascunhoOk = false;
+    function tentarAbrir() {
+      if (!pastaOk || !rascunhoOk) return;
+      // Restaurar dados do rascunho se existir
+      if (state.rascunho && state.rascunho.found && state.rascunho.dados) {
+        var d = state.rascunho.dados;
+        if (d.responsavel) state.responsavel = d.responsavel;
+        if (d.respostas) {
+          // Restaurar apenas status, justificativa e arquivos com link (já enviados ao Drive)
+          for (var cod in d.respostas) {
+            var r = d.respostas[cod];
+            state.respostas[cod] = { status: r.status || '', justificativa: r.justificativa || '' };
+            if (r.arquivos && r.arquivos.length > 0) {
+              state.respostas[cod].arquivos = {};
+              for (var ai = 0; ai < r.arquivos.length; ai++) {
+                var a = r.arquivos[ai];
+                // Arquivo já enviado: guardar link + fileId para exibir e permitir substituição
+                state.respostas[cod].arquivos[a.tipo] = { nome: a.nome, link: a.link, fileId: a.fileId || '' };
+              }
+            }
+          }
+        }
+      }
+      state.tela = 'formulario'; render();
+    }
+
     apiGet('getPasta', { inep: inep }, function(err, data) {
       if (!err && data) { state.linkPasta = data.linkPasta; state.folderId = data.folderId; }
-      state.tela = 'formulario'; render();
+      pastaOk = true; tentarAbrir();
     });
+
+    apiGet('getRascunho', { inep: inep }, function(err, data) {
+      if (!err && data) state.rascunho = data;
+      rascunhoOk = true; tentarAbrir();
+    });
+
   } else if (action === 'voltar-municipios') {
     state.tela = 'municipio'; state.municipioSel = null; state.escolas = []; render();
   } else if (action === 'voltar-escolas') {
@@ -570,7 +705,72 @@ function handleAction(action, elem) {
 }
 
 // =====================================================================
-// ENVIAR FORMULÁRIO
+// SALVAR RASCUNHO
+// =====================================================================
+function salvarRascunho() {
+  var btnSalvar = el('btn-salvar');
+  var feedback  = el('save-feedback');
+  if (btnSalvar) { btnSalvar.disabled = true; btnSalvar.textContent = 'Salvando...'; }
+  if (feedback)  feedback.textContent = '';
+
+  var irregs = state.escolaSel.irregularidades;
+
+  // Se há arquivos NOVOS (file object) precisamos fazer upload primeiro
+  var irregsComArqNovo = [];
+  irregs.forEach(function(ir) {
+    var arqs = (state.respostas[ir.cod] || {}).arquivos || {};
+    for (var tipo in arqs) {
+      if (arqs[tipo].file) { irregsComArqNovo.push(ir); break; }
+    }
+  });
+
+  function _continuarSalvar(links) {
+    // Mesclar links novos com links já existentes no state
+    for (var cod in links) {
+      if (!state.respostas[cod]) state.respostas[cod] = {};
+      if (!state.respostas[cod].arquivos) state.respostas[cod].arquivos = {};
+      for (var ti = 0; ti < links[cod].length; ti++) {
+        var a = links[cod][ti];
+        state.respostas[cod].arquivos[a.tipo] = { nome: a.nome, link: a.link, fileId: a.fileId || '' };
+      }
+    }
+
+    var dadosRascunho = _montarDadosEnvio('rascunho');
+    apiPost(dadosRascunho, function(err, result) {
+      if (btnSalvar) { btnSalvar.disabled = false; btnSalvar.textContent = '💾 Salvar rascunho'; }
+      if (err) {
+        if (feedback) { feedback.textContent = '⚠ Erro ao salvar.'; feedback.style.color = '#dc2626'; }
+        return;
+      }
+      if (feedback) {
+        feedback.textContent = '✓ Salvo em ' + result.timestamp;
+        feedback.style.color = '#166534';
+      }
+      // Atualizar estado do rascunho para refletir timestamp
+      if (!state.rascunho) state.rascunho = {};
+      state.rascunho.found = true;
+      state.rascunho.timestamp = result.timestamp;
+      state.rascunho.statusEnvio = 'rascunho';
+    });
+  }
+
+  if (irregsComArqNovo.length > 0 && state.folderId) {
+    obterToken(function(token, err) {
+      if (err || !token) {
+        if (btnSalvar) { btnSalvar.disabled = false; btnSalvar.textContent = '💾 Salvar rascunho'; }
+        alert('Não foi possível autorizar o upload: ' + (err || 'sem token'));
+        return;
+      }
+      state.googleToken = token;
+      _uploadSequencial(irregsComArqNovo, 0, {}, _continuarSalvar);
+    });
+  } else {
+    _continuarSalvar({});
+  }
+}
+
+// =====================================================================
+// ENVIAR FORMULÁRIO (finalizar)
 // =====================================================================
 function enviarFormulario() {
   var errs = [], irregs = state.escolaSel.irregularidades;
@@ -583,37 +783,81 @@ function enviarFormulario() {
   if (errs.length) { state.errors = errs; render(); window.scrollTo({top:0,behavior:'smooth'}); return; }
 
   state.errors = [];
-  var irregsComArq = [];
+  var irregsComArqNovo = [];
   irregs.forEach(function(ir) {
     var arqs = (state.respostas[ir.cod] || {}).arquivos || {};
-    if (Object.keys(arqs).length > 0) irregsComArq.push(ir);
+    for (var tipo in arqs) {
+      if (arqs[tipo].file) { irregsComArqNovo.push(ir); break; }
+    }
   });
 
-  if (irregsComArq.length > 0 && state.folderId) {
+  function _continuarEnvio(links) {
+    // Mesclar links novos
+    for (var cod in links) {
+      if (!state.respostas[cod]) state.respostas[cod] = {};
+      if (!state.respostas[cod].arquivos) state.respostas[cod].arquivos = {};
+      for (var ti = 0; ti < links[cod].length; ti++) {
+        var a = links[cod][ti];
+        state.respostas[cod].arquivos[a.tipo] = { nome: a.nome, link: a.link, fileId: a.fileId || '' };
+      }
+    }
+    _gravarPlanilha();
+  }
+
+  if (irregsComArqNovo.length > 0 && state.folderId) {
     obterToken(function(token, err) {
       if (err || !token) { alert('Não foi possível autorizar o upload: ' + (err||'sem token')); return; }
       state.googleToken = token;
       state.tela = 'enviando'; render();
-      _uploadSequencial(irregsComArq, 0, {});
+      _uploadSequencial(irregsComArqNovo, 0, {}, _continuarEnvio);
     });
   } else {
     state.tela = 'enviando'; render();
-    _gravarPlanilha({});
+    _continuarEnvio({});
   }
 }
 
-function _uploadSequencial(irregsComArq, idx, links) {
-  if (idx >= irregsComArq.length) { _gravarPlanilha(links); return; }
+// Monta o objeto de dados para POST (rascunho ou final)
+function _montarDadosEnvio(tipo) {
+  var irregs = state.escolaSel.irregularidades;
+  var dados = {
+    tipo: tipo || 'final',
+    escola: { inep: state.escolaSel.inep, nome: state.escolaSel.nome, municipio: state.escolaSel.municipio },
+    responsavel: { nome: state.responsavel.nome, cargo: state.responsavel.cargo, cpf: state.responsavel.cpf },
+    respostas: {},
+    dataPreenchimento: new Date().toLocaleString('pt-BR')
+  };
+  for (var i = 0; i < irregs.length; i++) {
+    var ir = irregs[i], r = state.respostas[ir.cod] || {};
+    var arqList = [];
+    if (r.arquivos) {
+      for (var tipo2 in r.arquivos) {
+        var a = r.arquivos[tipo2];
+        if (a.link) arqList.push({ tipo: tipo2, nome: a.nome, link: a.link, fileId: a.fileId || '' });
+      }
+    }
+    dados.respostas[ir.cod] = {
+      status: r.status || '', justificativa: r.justificativa || '',
+      arquivos: arqList,
+      textoIrreg: ir.texto, dimensao: ir.dim, subdimensao: ir.sub,
+      geoNav: state.geoNav || {}
+    };
+  }
+  return dados;
+}
+
+function _uploadSequencial(irregsComArq, idx, links, done) {
+  if (idx >= irregsComArq.length) { done(links); return; }
 
   var ir       = irregsComArq[idx];
   var arqs     = (state.respostas[ir.cod] || {}).arquivos || {};
-  var tipos    = Object.keys(arqs);
+  var tipos    = Object.keys(arqs).filter(function(t) { return arqs[t].file; }); // só os novos
   var protocolo = state.escolaSel.inep + '-' + new Date().toISOString().replace(/[-T:.Z]/g,'').slice(0,14);
 
   if (!links[ir.cod]) links[ir.cod] = [];
 
   _uploadTipos(ir, tipos, 0, arqs, protocolo, links, function() {
-    _uploadSequencial(irregsComArq, idx + 1, links);
+    _uploadSequencial(irregsComArq, idx + 1, links, done);
   });
 }
 
@@ -627,45 +871,39 @@ function _uploadTipos(ir, tipos, tIdx, arqs, protocolo, links, done) {
   var total = 0;
   for (var k in (state.respostas || {})) {
     var a = (state.respostas[k] || {}).arquivos || {};
-    total += Object.keys(a).length;
+    for (var t in a) { if (a[t].file) total++; }
   }
   var atual = links[ir.cod].length + tIdx + 1;
 
   var msgEl = el('msg-enviando'), progEl = el('prog-bar');
   if (msgEl) msgEl.textContent = 'Enviando arquivo ' + atual + ' (' + arq.file.name + ')...';
 
-  uploadParaDrive(arq.file, state.folderId, state.googleToken, nome,
-    function(pct) { if (progEl) progEl.style.width = pct + '%'; },
-    function(err, res) {
-      if (err) { alert('Erro ao enviar "' + arq.file.name + '": ' + err); state.tela = 'formulario'; render(); return; }
-      links[ir.cod].push({ tipo: tipo, nome: arq.file.name, link: res.webViewLink });
-      if (progEl) progEl.style.width = '0%';
-      _uploadTipos(ir, tipos, tIdx + 1, arqs, protocolo, links, done);
-    }
-  );
+  // Se há arquivo antigo para deletar, faz antes do upload
+  function _doUpload() {
+    uploadParaDrive(arq.file, state.folderId, state.googleToken, nome,
+      function(pct) { if (progEl) progEl.style.width = pct + '%'; },
+      function(err, res) {
+        if (err) { alert('Erro ao enviar "' + arq.file.name + '": ' + err); state.tela = 'formulario'; render(); return; }
+        links[ir.cod].push({ tipo: tipo, nome: arq.file.name, link: res.webViewLink, fileId: res.id });
+        if (progEl) progEl.style.width = '0%';
+        _uploadTipos(ir, tipos, tIdx + 1, arqs, protocolo, links, done);
+      }
+    );
+  }
+
+  if (arq.oldFileId) {
+    // Deletar arquivo antigo via Apps Script antes de fazer novo upload
+    apiGet('deletarArquivo', { fileId: arq.oldFileId }, function() { _doUpload(); });
+  } else {
+    _doUpload();
+  }
 }
 
-function _gravarPlanilha(links) {
+function _gravarPlanilha() {
   var msgEl = el('msg-enviando');
   if (msgEl) msgEl.textContent = 'Registrando respostas...';
 
-  var irregs = state.escolaSel.irregularidades;
-  var dadosEnvio = {
-    escola: { inep: state.escolaSel.inep, nome: state.escolaSel.nome, municipio: state.escolaSel.municipio },
-    responsavel: { nome: state.responsavel.nome, cargo: state.responsavel.cargo, cpf: state.responsavel.cpf },
-    respostas: {},
-    dataPreenchimento: new Date().toLocaleString('pt-BR')
-  };
-
-  for (var i = 0; i < irregs.length; i++) {
-    var ir = irregs[i], r = state.respostas[ir.cod]||{}, arqList = links[ir.cod]||[];
-    dadosEnvio.respostas[ir.cod] = {
-      status: r.status||'nao_cumprida', justificativa: r.justificativa||'',
-      arquivos: arqList,  // [{tipo, nome, link}]
-      textoIrreg: ir.texto, dimensao: ir.dim, subdimensao: ir.sub,
-      geoNav: state.geoNav||{}
-    };
-  }
+  var dadosEnvio = _montarDadosEnvio('final');
 
   apiPost(dadosEnvio, function(err, result) {
     if (err) { alert('Erro ao salvar: ' + err.message); state.tela = 'formulario'; render(); return; }
@@ -674,6 +912,13 @@ function _gravarPlanilha(links) {
       respostas: dadosEnvio.respostas, dataPreenchimento: dadosEnvio.dataPreenchimento,
       protocolo: result.protocolo, timestamp: result.timestamp
     };
+    // Atualizar badge da escola na lista
+    for (var i = 0; i < state.escolas.length; i++) {
+      if (state.escolas[i].inep === state.escolaSel.inep) {
+        state.escolas[i].statusEnvio = 'finalizado';
+        break;
+      }
+    }
     state.tela = 'recibo'; render(); window.scrollTo({top:0});
   });
 }
