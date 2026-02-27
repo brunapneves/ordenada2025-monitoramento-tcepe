@@ -122,6 +122,7 @@ var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz1ZT4Uf35Me-ke3e
 var CLIENT_ID       = '943637051517-bj6voqpq6dq39c8lf7rnis5bv8artfjk.apps.googleusercontent.com';
 var DRIVE_SCOPE     = 'https://www.googleapis.com/auth/drive.file';
 
+
 // =====================================================================
 // ESTADO
 // =====================================================================
@@ -419,10 +420,11 @@ function renderFormulario() {
               '<div style="font-size:11px;color:#64748b;margin-bottom:3px">' + tm.label + '</div>';
 
             if (arqInfo && arqInfo.link) {
-              // Arquivo já enviado ao Drive — mostrar link + botão substituir
+              // Arquivo já enviado ao Drive — mostrar link + botões substituir/excluir
               html += '<div class="arq-enviado" id="arq-env-' + esc(ir.cod) + '-' + tipo + '">' +
                 '<a href="' + esc(arqInfo.link) + '" target="_blank">&#128206; ' + esc(arqInfo.nome) + '</a>' +
                 '<button class="btn-subst" data-action="substituir-arq" data-cod="' + esc(ir.cod) + '" data-tipo="' + tipo + '" data-fileid="' + esc(arqInfo.fileId||'') + '">&#128259; Substituir</button>' +
+                '<button class="btn-subst" data-action="excluir-arq" data-cod="' + esc(ir.cod) + '" data-tipo="' + tipo + '" data-fileid="' + esc(arqInfo.fileId||'') + '" style="color:#dc2626">&#128465; Excluir</button>' +
                 '</div>' +
                 '<input type="file" class="form-input" accept="' + tm.accept + '" data-field="arquivo" data-cod="' + esc(ir.cod) + '" data-tipo="' + tipo + '" style="padding:6px 12px;font-size:12px;display:none" id="inp-' + esc(ir.cod) + '-' + tipo + '">';
             } else {
@@ -548,7 +550,11 @@ function renderRecibo() {
 function bindNavEvents() {
   var els = document.querySelectorAll('[data-action]');
   for (var i = 0; i < els.length; i++) {
-    (function(elem) { elem.onclick = function() { handleAction(elem.getAttribute('data-action'), elem); }; })(els[i]);
+    (function(elem) {
+      var ac = elem.getAttribute('data-action');
+      if (ac === 'substituir-arq' || ac === 'excluir-arq') return; // tratados em bindSubstArqEvents
+      elem.onclick = function() { handleAction(ac, elem); };
+    })(els[i]);
   }
   var busca = el('busca-escola');
   if (busca) busca.oninput = function() {
@@ -606,28 +612,70 @@ function bindFormEvents() {
   if (btn) btn.onclick = enviarFormulario;
 }
 
-// Ação de substituir arquivo já enviado
+// Ação de substituir ou excluir arquivo já enviado
 function bindSubstArqEvents() {
+  // SUBSTITUIR
   document.querySelectorAll('[data-action="substituir-arq"]').forEach(function(btn) {
-    btn.onclick = function() {
+    btn.onclick = function(ev) {
+      ev.stopPropagation();
       var cod    = btn.getAttribute('data-cod');
       var tipo   = btn.getAttribute('data-tipo');
       var fileId = btn.getAttribute('data-fileid');
 
-      // Marcar o arquivo existente para deleção após novo upload
       if (!state.respostas[cod]) state.respostas[cod] = {};
       if (!state.respostas[cod].arquivos) state.respostas[cod].arquivos = {};
-      // Guardar fileId do antigo para deletar depois do upload
+      // Marcar como "substituindo" — oldFileId será deletado antes do novo upload
       state.respostas[cod].arquivos[tipo] = { substituindo: true, oldFileId: fileId };
 
-      // Esconder o bloco "arq-enviado" e mostrar o input file
+      // Esconder bloco enviado, mostrar input file
       var divEnv = el('arq-env-' + cod + '-' + tipo);
       var inp    = el('inp-' + cod + '-' + tipo);
       if (divEnv) divEnv.style.display = 'none';
-      if (inp)    { inp.style.display = ''; inp.onchange = function() {
-        var file = inp.files[0];
-        if (file) state.respostas[cod].arquivos[tipo] = { file: file, nome: file.name, oldFileId: fileId };
-      }; }
+      if (inp) {
+        inp.style.display = '';
+        inp.onchange = function() {
+          var file = inp.files[0];
+          if (file) state.respostas[cod].arquivos[tipo] = { file: file, nome: file.name, oldFileId: fileId };
+        };
+      }
+    };
+  });
+
+  // EXCLUIR
+  document.querySelectorAll('[data-action="excluir-arq"]').forEach(function(btn) {
+    btn.onclick = function(ev) {
+      ev.stopPropagation();
+      var cod    = btn.getAttribute('data-cod');
+      var tipo   = btn.getAttribute('data-tipo');
+      var fileId = btn.getAttribute('data-fileid');
+
+      if (!confirm('Excluir o arquivo enviado? Ele será removido do Drive.')) return;
+
+      // Deletar do Drive via Apps Script
+      if (fileId) {
+        apiGet('deletarArquivo', { fileId: fileId }, function() { /* silencioso */ });
+      }
+
+      // Limpar do estado
+      if (state.respostas[cod] && state.respostas[cod].arquivos) {
+        delete state.respostas[cod].arquivos[tipo];
+      }
+
+      // Substituir bloco enviado por input file vazio
+      var divEnv = el('arq-env-' + cod + '-' + tipo);
+      var inp    = el('inp-' + cod + '-' + tipo);
+      if (divEnv) divEnv.style.display = 'none';
+      if (inp) {
+        inp.style.display = '';
+        inp.value = '';
+        inp.onchange = function() {
+          var file = inp.files[0];
+          if (!state.respostas[cod]) state.respostas[cod] = {};
+          if (!state.respostas[cod].arquivos) state.respostas[cod].arquivos = {};
+          if (file) state.respostas[cod].arquivos[tipo] = { file: file, nome: file.name };
+          else delete state.respostas[cod].arquivos[tipo];
+        };
+      }
     };
   });
 }
